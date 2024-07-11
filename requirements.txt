@@ -1,0 +1,11 @@
+Django>=3.2,<4.0
+django-redis
+pymongo
+djangorestframework
+djongo
+django-cors-headers
+boto3
+PyJWT
+bcrypt
+requests
+channels

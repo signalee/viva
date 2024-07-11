@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Django Tab Navigation</title>
+    <style>
+        .tab {
+            display: none;
+        }
+        .tab.active {
+            display: block;
+        }
+        .tab-menu button {
+            margin-right: 10px;
+            padding: 10px;
+        }
+    </style>
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function openTab(tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablink");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+
+            if (tabName === 'profile') {
+                fetchUserProfile();
+            }
+        }
+
+        function signUp(event) {
+            event.preventDefault();
+            const userId = document.getElementById('user_id').value;
+            const userPw = document.getElementById('user_pw').value;
+            const userPwCheck = document.getElementById('user_pw_check').value;
+            const userName = document.getElementById('user_name').value;
+            const csrftoken = getCookie('csrftoken');
+
+            fetch('http://localhost:8000/api/v1/user/signup/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    user_pw: userPw,
+                    user_pw_check: userPwCheck,
+                    user_name: userName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status == 'true') {
+                    document.cookie = `access_token=${data.access_token}; path=/`;
+                    alert('회원가입이 성공적으로 완료되었습니다.' + data.access_token);
+                    openTab('profile-tab'); // 회원가입 성공 시 내정보수정 탭 보이기
+                    // 추가 작업: 로그인 페이지로 이동 또는 다른 작업
+                } else {
+                    alert('회원가입에 실패하였습니다. ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function fetchUserProfile() {
+            const access_token = getCookie('access_token');
+            if (!access_token) {
+                console.error('Access token not found.');
+                // 로그인하지 않은 경우, 회원정보수정 탭을 숨길 수 있음
+                document.getElementById('profile').style.display = 'none';
+                return;
+            }
+
+            const apiUrl = 'http://localhost:8000/api/v1/user/profile/';
+
+            fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${access_token}`
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const usernameInput = document.getElementById('username');
+                const emailInput = document.getElementById('email');
+
+                usernameInput.value = data.username;
+                emailInput.value = data.email;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+        function updateProfile(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const access_token = getCookie('access_token');
+
+            const apiUrl = 'http://localhost:8000/api/v1/user/profile/update/';
+
+            fetch(apiUrl, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${access_token}`
+                },
+                body: JSON.stringify({
+                    username: username,
+                    email: email
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('회원 정보가 성공적으로 수정되었습니다.');
+                console.log('Updated user:', data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('회원 정보 수정에 실패하였습니다.');
+            });
+        }
+
+        // 초기 탭 열기
+        openTab('signup');
+    </script>
+</head>
+<body>
+
+    <div class="tab-menu">
+        <button class="tablink" onclick="openTab('signup')">회원가입</button>
+        <button class="tablink" onclick="openTab('login')">로그인</button>
+        <button class="tablink" onclick="openTab('profile')" id="profile-tab" style="display: none;">회원정보수정</button>
+        <button class="tablink" onclick="openTab('posts')">게시글 목록</button>
+    </div>
+
+    <!-- 회원가입 -->
+    <div id="signup" class="tab">
+        <h2>회원가입</h2>
+        <form onsubmit="signUp(event)">
+            {% csrf_token %}
+            <label for="user_name">Username:</label>
+            <input type="text" id="user_name" name="user_name"><br>
+            <label for="user_pw">Password:</label>
+            <input type="password" id="user_pw" name="user_pw"><br>
+            <label for="user_pw_check">Password Check:</label>
+            <input type="password" id="user_pw_check" name="user_pw_check"><br>
+            <label for="user_id">Email:</label>
+            <input type="text" id="user_id" name="user_id"><br>
+            <button type="submit">Sign Up</button>
+        </form>
+    </div>
+
+    <!-- 로그인 -->
+    <div id="login" class="tab">
+        <h2>로그인</h2>
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username"><br>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password"><br>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <!-- 회원정보수정 -->
+    <div id="profile" class="tab">
+        <h2>회원정보수정</h2>
+        <form onsubmit="updateProfile(event)">
+            {% csrf_token %}
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username"><br>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email"><br>
+            <button type="submit">Update</button>
+        </form>
+    </div>
+
+    <!-- 게시글 목록 -->
+    <div id="posts" class="tab">
+        <h2>게시글 목록</h2>
+        <ul>
+            {% for post in posts %}
+                <li><a href="{% url 'post_detail' post.id %}">{{ post.title }}</a></li>
+            {% endfor %}
+        </ul>
+        <!-- 페이징 처리 -->
+        <div>
+            {% if posts.has_previous %}
+                <a href="?page={{ posts.previous_page_number }}">Previous</a>
+            {% endif %}
+            <span>{{ posts.number }} / {{ posts.paginator.num_pages }}</span>
+            {% if posts.has_next %}
+                <a href="?page={{ posts.next_page_number }}">Next</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 게시글 상세 내용 조회, 수정, 삭제 -->
+
+</body>
+</html>
